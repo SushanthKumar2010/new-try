@@ -2,7 +2,8 @@ import os
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-import google.generativeai as genai
+from flask_cors import CORS
+from google import genai
 
 load_dotenv()
 
@@ -83,4 +84,5 @@ Requirements:
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
 

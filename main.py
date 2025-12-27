@@ -11,7 +11,7 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 if not GEMINI_API_KEY:
     raise RuntimeError("GEMINI_API_KEY not set")
 
-MODEL_NAME = "gemini-2.5-flash-lite-preview-09-2025"
+MODEL_NAME = "gemini-2.0-flash"
 
 # ======================
 # APP SETUP
@@ -114,5 +114,6 @@ Requirements:
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=10000)
+
 
 

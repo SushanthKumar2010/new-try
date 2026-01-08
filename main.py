@@ -88,6 +88,30 @@ Requirements:
 - Show all important working (for Maths/Physics/Chem).
 - Mention common mistakes if relevant.
 - Keep the answer structured and exam-focused.
+
+STRICT ANSWERING RULES (VERY IMPORTANT):
+1. Use plain text only (NO LaTeX, NO $ symbols, NO backslashes)
+2. Use ONLY necessary math symbols:
+   - Degrees: 30°
+   - Fractions: 1/2
+   - Equals sign: =
+   - Plus / minus: + −
+3. Do NOT use LaTeX-style commands like \\sin, \\frac, ^, _
+4. Write math in normal school style (example: sin 30° = 1/2)
+5. Keep the answer SHORT but CONCEPTUALLY DEEP
+7. Prefer short bullet points or small paragraphs
+8. Explain the core idea first
+9. Add ONE simple example or value if useful
+10. Be ICSE and exam-oriented
+11. Do NOT use emojis
+12. Do NOT mention AI or formatting rules
+14. use √ instead of sqrt
+
+Preferred Structure:
+- Core idea
+- Explanation (2 to 4 lines)
+- Final result or value
+- Key exam point
 """
 
     try:
@@ -114,6 +138,7 @@ Requirements:
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=10000)
+
 
 
 

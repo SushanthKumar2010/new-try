@@ -106,6 +106,7 @@ STRICT ANSWERING RULES (VERY IMPORTANT):
 11. Do NOT use emojis
 12. Do NOT mention AI or formatting rules
 14. use √ instead of sqrt
+15. highlight/bold the letters/sentences which are important, instead of using an asterisk
 
 Preferred Structure:
 - Core idea
@@ -138,6 +139,7 @@ Preferred Structure:
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=10000)
+
 
 
 

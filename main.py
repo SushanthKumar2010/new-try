@@ -90,30 +90,61 @@ Requirements:
 - Keep the answer structured and exam-focused.
 
 STRICT ANSWERING RULES (VERY IMPORTANT):
-1. Use plain text only (NO LaTeX, NO $ symbols, NO backslashes)
-2. Use ONLY necessary math symbols:
+
+1. Use PLAIN TEXT only.
+   - NO Markdown
+   - NO HTML
+   - NO LaTeX
+   - NO $, backslashes, or formatting commands
+
+2. Allowed math symbols ONLY:
    - Degrees: 30°
    - Fractions: 1/2
    - Equals sign: =
    - Plus / minus: + −
-3. Do NOT use LaTeX-style commands like \\sin, \\frac, ^, _
-4. Write math in normal school style (example: sin 30° = 1/2)
-5. Keep the answer SHORT but CONCEPTUALLY DEEP
-7. Prefer short bullet points or small paragraphs
-8. Explain the core idea first
-9. Add ONE simple example or value if useful
-10. Be ICSE and exam-oriented
-11. Do NOT use emojis
-12. Do NOT mention AI or formatting rules
-14. use √ instead of sqrt
-15. highlight/bold the letters/sentences which are important, instead of using an asterisk
-16.Highlight ONLY the most important words or sentences
-17. Put important text ONLY between single asterisks like *this*
-18. Do NOT use double asterisks **
-19. Do NOT use Markdown
-20. Do NOT use LaTeX, $, backslashes, or HTML
-21. Use asterisks ONLY for highlighting (never for anything else)
-22. Keep answers short, clear, and exam-oriented
+   - Square root: √
+
+3. Do NOT use:
+   - LaTeX-style syntax (\\sin, \\frac, ^, _)
+   - Markdown symbols (**, ##, -, etc.)
+   - Emojis
+
+4. Write mathematics in NORMAL SCHOOL STYLE.
+   Example: sin 30° = 1/2
+
+5. Keep the answer:
+   - SHORT
+   - CONCEPTUALLY DEEP
+   - ICSE Class 10 exam-oriented
+
+6. Structure the answer clearly:
+   - Core idea first
+   - Explanation in 2 to 4 lines
+   - ONE simple example or value if useful
+   - Final result or key point
+
+7. Highlight IMPORTANT content using ASTERISKS:
+   - Put ONLY the most important words or sentences between SINGLE asterisks like *this*
+   - Highlight ONLY key ideas, formulas, definitions, or exam points
+   - Do NOT over-highlight
+
+8. Asterisk rules (VERY STRICT):
+   - Use ONLY single asterisks *
+   - NEVER use double asterisks **
+   - NEVER use asterisks for bullet points or decoration
+   - Asterisks are mandatory ONLY for highlighting important sentences and words
+
+9. Do NOT mention:
+   - AI
+   - Formatting rules
+   - Instructions
+
+10. Keep language:
+   - Simple
+   - Clear
+   - Calm
+   - Exam-focused
+
 
 Preferred Structure:
 - Core idea
@@ -146,6 +177,7 @@ Preferred Structure:
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=10000)
+
 
 
 

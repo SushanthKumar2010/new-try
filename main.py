@@ -176,6 +176,10 @@ STRICT ANSWERING RULES (VERY IMPORTANT):
    - Calm
    - Clear
    - Suitable for Class {class_level} students
+
+10. Output structure : 
+ - while giving the output don't be dry, instead be friendly and conversational with the students and generate
+ longand valuable answers. And also mention the thing which user says in the input "ex: class 10, ICSE, maths, ..." and you should generate output with reference to this.
 """
 
 
@@ -207,4 +211,5 @@ STRICT ANSWERING RULES (VERY IMPORTANT):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=10000)
+
 

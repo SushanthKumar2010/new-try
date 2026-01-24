@@ -64,7 +64,8 @@ def simple_chat(data: dict):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/ask")
-def ask_icse_question(payload: dict):
+def ask_question(payload: dict):
+    board = (payload.get("board") or "ICSE").strip().upper()
     class_level = (payload.get("class_level") or "10").strip()
     subject = (payload.get("subject") or "General").strip()
     chapter = (payload.get("chapter") or "General").strip()
@@ -74,8 +75,9 @@ def ask_icse_question(payload: dict):
         raise HTTPException(status_code=400, detail="Question is required")
 
     prompt = f"""
-You are an expert ICSE Class {class_level} tutor.
+You are an expert {board} Class {class_level} tutor.
 
+Board: {board}
 Subject: {subject}
 Chapter: {chapter}
 
@@ -84,11 +86,11 @@ Student Question:
 
 Requirements:
 - Give a clear, step-by-step solution.
-- Use ICSE/CBSE Class 9 & 10 (depends on the user input) level language and methods.
+- Use {board} Class {class_level} level language and methods.
 - Show all important working (for Maths/Physics/Chem).
 - Mention common mistakes if relevant.
 - Keep the answer structured and exam-focused.
-- just stay focused on ICSE and CBSE portions and not anything else
+- Stay strictly within {board} syllabus and patterns only.
 
 STRICT ANSWERING RULES (VERY IMPORTANT):
 
@@ -116,7 +118,7 @@ STRICT ANSWERING RULES (VERY IMPORTANT):
 5. Keep the answer:
    - SHORT
    - CONCEPTUALLY DEEP
-   - ICSE Class 10 exam-oriented
+   - {board} Class {class_level} exam-oriented
 
 6. Structure the answer clearly:
    - Core idea first
@@ -133,9 +135,8 @@ STRICT ANSWERING RULES (VERY IMPORTANT):
    - Use ONLY single asterisks *
    - NEVER use double asterisks **
    - NEVER use asterisks for bullet points or decoration
-   - Asterisks are mandatory for highlighting important sentences and words in the answer and not any other thing, no matter what, 
-   just focus on pure answers and not other stuff (for example : important formulas, keywords, important answers, important topics, etc)
-   -also the main output in the asterisks(ex: maths result, or any other subjects...)
+   - Asterisks are mandatory for highlighting important sentences and words
+   - The MAIN FINAL ANSWER must be inside asterisks
 
 9. Do NOT mention:
    - AI
@@ -147,7 +148,6 @@ STRICT ANSWERING RULES (VERY IMPORTANT):
    - Clear
    - Calm
    - Exam-focused
-
 
 Preferred Structure:
 - Core idea
@@ -180,6 +180,7 @@ Preferred Structure:
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=10000)
+
 
 
 

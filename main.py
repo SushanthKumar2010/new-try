@@ -13,13 +13,15 @@ if not GEMINI_API_KEY:
 
 MODEL_NAME = "gemini-2.5-flash-lite"
 
+ALLOWED_BOARDS = {"ICSE", "CBSE"}
+
 # ======================
 # APP SETUP
 # ======================
 
 app = FastAPI(
-    title="ICSE AI Tutor",
-    description="FastAPI backend for ICSE Class 10 tutor using Gemini",
+    title="Class 9 & 10 AI Tutor",
+    description="FastAPI backend for ICSE and CBSE Class 9 & 10 tutoring",
     version="1.0.0",
 )
 
@@ -31,7 +33,7 @@ app.add_middleware(
 )
 
 # ======================
-# GEMINI CLIENT (NEW SDK)
+# GEMINI CLIENT
 # ======================
 
 client = genai.Client(api_key=GEMINI_API_KEY)
@@ -42,7 +44,7 @@ client = genai.Client(api_key=GEMINI_API_KEY)
 
 @app.get("/")
 def root():
-    return {"status": "Backend running ✅"}
+    return {"status": "Backend running"}
 
 @app.get("/health")
 def health():
@@ -59,7 +61,8 @@ def simple_chat(data: dict):
             model=MODEL_NAME,
             contents=prompt,
         )
-        return {"response": response.text}
+        text = response.text or ""
+        return {"response": text.strip()}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -70,6 +73,9 @@ def ask_question(payload: dict):
     subject = (payload.get("subject") or "General").strip()
     chapter = (payload.get("chapter") or "General").strip()
     question = (payload.get("question") or "").strip()
+
+    if board not in ALLOWED_BOARDS:
+        raise HTTPException(status_code=400, detail="Invalid board")
 
     if not question:
         raise HTTPException(status_code=400, detail="Question is required")
@@ -127,33 +133,20 @@ STRICT ANSWERING RULES (VERY IMPORTANT):
    - Final result or key point
 
 7. Highlight IMPORTANT content using ASTERISKS:
-   - Put ONLY the most important words or sentences between SINGLE asterisks like *this*
-   - Highlight ONLY key ideas, formulas, definitions, or exam points
-   - Do NOT over-highlight
-
-8. Asterisk rules (VERY STRICT):
    - Use ONLY single asterisks *
-   - NEVER use double asterisks **
-   - NEVER use asterisks for bullet points or decoration
-   - Asterisks are mandatory for highlighting important sentences and words
+   - Highlight ONLY key ideas or final answers
    - The MAIN FINAL ANSWER must be inside asterisks
 
-9. Do NOT mention:
+8. Do NOT mention:
    - AI
    - Formatting rules
    - Instructions
 
-10. Keep language:
+9. Keep language:
    - Simple
    - Clear
    - Calm
    - Exam-focused
-
-Preferred Structure:
-- Core idea
-- Explanation (2 to 4 lines)
-- Final result or value
-- Key exam point
 """
 
     try:
@@ -161,13 +154,16 @@ Preferred Structure:
             model=MODEL_NAME,
             contents=prompt,
         )
-        answer = (response.text or "I could not generate an answer.").strip()
+        answer = (response.text or "").strip()
+        if not answer:
+            answer = "I could not generate an answer."
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Gemini error: {e}")
 
     return {
         "answer": answer,
         "meta": {
+            "board": board,
             "class_level": class_level,
             "subject": subject,
             "chapter": chapter,
@@ -177,24 +173,7 @@ Preferred Structure:
 # ======================
 # LOCAL DEV ONLY
 # ======================
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=10000)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

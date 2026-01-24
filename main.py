@@ -50,6 +50,28 @@ def root():
 def health():
     return {"status": "ok"}
 
+# ---------- INTRO (FIX) ----------
+@app.post("/api/intro")
+def get_intro(payload: dict):
+    board = (payload.get("board") or "").strip().upper()
+    class_level = (payload.get("class_level") or "10").strip()
+    subject = (payload.get("subject") or "General").strip()
+
+    if board in ALLOWED_BOARDS:
+        board_text = f"{board} Class"
+    else:
+        board_text = "Class"
+
+    intro = (
+        f"Hello! I'm here to help you with your {board_text} "
+        f"{class_level} {subject} questions.\n\n"
+        "Let's start with your first question. "
+        "Please type your problem."
+    )
+
+    return {"intro": intro}
+
+# ---------- SIMPLE CHAT ----------
 @app.post("/api/chat")
 def simple_chat(data: dict):
     prompt = (data.get("prompt") or "").strip()
@@ -61,11 +83,11 @@ def simple_chat(data: dict):
             model=MODEL_NAME,
             contents=prompt,
         )
-        text = response.text or ""
-        return {"response": text.strip()}
+        return {"response": (response.text or "").strip()}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# ---------- MAIN ASK ----------
 @app.post("/api/ask")
 def ask_question(payload: dict):
     board = (payload.get("board") or "ICSE").strip().upper()
@@ -101,52 +123,11 @@ Requirements:
 STRICT ANSWERING RULES (VERY IMPORTANT):
 
 1. Use PLAIN TEXT only.
-   - NO Markdown
-   - NO HTML
-   - NO LaTeX
-   - NO $, backslashes, or formatting commands
-
-2. Allowed math symbols ONLY:
-   - Degrees: 30°
-   - Fractions: 1/2
-   - Equals sign: =
-   - Plus / minus: + −
-   - Square root: √
-
-3. Do NOT use:
-   - LaTeX-style syntax (\\sin, \\frac, ^, _)
-   - Markdown symbols (**, ##, -, etc.)
-   - Emojis
-
-4. Write mathematics in NORMAL SCHOOL STYLE.
-   Example: sin 30° = 1/2
-
-5. Keep the answer:
-   - SHORT
-   - CONCEPTUALLY DEEP
-   - {board} Class {class_level} exam-oriented
-
-6. Structure the answer clearly:
-   - Core idea first
-   - Explanation in 2 to 4 lines
-   - ONE simple example or value if useful
-   - Final result or key point
-
-7. Highlight IMPORTANT content using ASTERISKS:
-   - Use ONLY single asterisks *
-   - Highlight ONLY key ideas or final answers
-   - The MAIN FINAL ANSWER must be inside asterisks
-
-8. Do NOT mention:
-   - AI
-   - Formatting rules
-   - Instructions
-
-9. Keep language:
-   - Simple
-   - Clear
-   - Calm
-   - Exam-focused
+2. Allowed math symbols ONLY: 30°, 1/2, =, + −, √
+3. Write mathematics in NORMAL SCHOOL STYLE.
+4. Keep the answer SHORT and exam-oriented.
+5. Highlight key results using single asterisks * *
+6. Do NOT mention AI or instructions.
 """
 
     try:

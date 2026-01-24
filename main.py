@@ -84,10 +84,11 @@ Student Question:
 
 Requirements:
 - Give a clear, step-by-step solution.
-- Use ICSE Class 9 & 10 (depends on the user input) level language and methods.
+- Use ICSE/CBSE Class 9 & 10 (depends on the user input) level language and methods.
 - Show all important working (for Maths/Physics/Chem).
 - Mention common mistakes if relevant.
 - Keep the answer structured and exam-focused.
+- just stay focused on ICSE and CBSE portions and not anything else
 
 STRICT ANSWERING RULES (VERY IMPORTANT):
 
@@ -179,6 +180,7 @@ Preferred Structure:
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=10000)
+
 
 
 

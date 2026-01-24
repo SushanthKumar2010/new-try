@@ -84,7 +84,7 @@ Student Question:
 
 Requirements:
 - Give a clear, step-by-step solution.
-- Use ICSE Class 10 level language and methods.
+- Use ICSE Class 9 & 10 (depends on the user input) level language and methods.
 - Show all important working (for Maths/Physics/Chem).
 - Mention common mistakes if relevant.
 - Keep the answer structured and exam-focused.
@@ -107,6 +107,13 @@ STRICT ANSWERING RULES (VERY IMPORTANT):
 12. Do NOT mention AI or formatting rules
 14. use √ instead of sqrt
 15. highlight/bold the letters/sentences which are important, instead of using an asterisk
+16.Highlight ONLY the most important words or sentences
+17. Put important text ONLY between single asterisks like *this*
+18. Do NOT use double asterisks **
+19. Do NOT use Markdown
+20. Do NOT use LaTeX, $, backslashes, or HTML
+21. Use asterisks ONLY for highlighting (never for anything else)
+22. Keep answers short, clear, and exam-oriented
 
 Preferred Structure:
 - Core idea
@@ -139,6 +146,7 @@ Preferred Structure:
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=10000)
+
 
 
 

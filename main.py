@@ -132,7 +132,7 @@ STRICT ANSWERING RULES (VERY IMPORTANT):
    - Use ONLY single asterisks *
    - NEVER use double asterisks **
    - NEVER use asterisks for bullet points or decoration
-   - Asterisks are mandatory ONLY for highlighting important sentences and words
+   - Asterisks are mandatory ONLY for highlighting important sentences and words in the answer and not any other thing, no matter what, just focus on pure answers and not other stuff
 
 9. Do NOT mention:
    - AI
@@ -177,6 +177,7 @@ Preferred Structure:
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=10000)
+
 
 
 

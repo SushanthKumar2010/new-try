@@ -134,6 +134,7 @@ STRICT ANSWERING RULES (VERY IMPORTANT):
    - NEVER use asterisks for bullet points or decoration
    - Asterisks are mandatory for highlighting important sentences and words in the answer and not any other thing, no matter what, 
    just focus on pure answers and not other stuff (for example : important formulas, keywords, important answers, important topics, etc)
+   -also the main output in the asterisks(ex: maths result, or any other subjects...)
 
 9. Do NOT mention:
    - AI
@@ -178,6 +179,7 @@ Preferred Structure:
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=10000)
+
 
 
 

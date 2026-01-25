@@ -180,6 +180,96 @@ STRICT ANSWERING RULES (VERY IMPORTANT):
 10. Output structure : 
  - while giving the output don't be dry, instead be friendly and conversational with the students and generate
  longand valuable answers. And also mention the thing which user says in the input "ex: class 10, ICSE, maths, ..." and you should generate output with reference to this.
+
+ 
+11. BOARD ALIGNMENT RULE
+
+* Answer ONLY what is officially taught at Class {class_level} level for the given {board}.
+* Do NOT use higher-class shortcuts, advanced tricks, or competitive exam logic.
+* If ICSE and CBSE approaches differ, follow the method strictly accepted in the given {board}.
+
+12. EXAM ANSWER EXPECTATION
+
+* Frame the answer exactly how a board examiner expects it.
+* Use proper terminology used in {board} textbooks.
+* Avoid casual wording that cannot earn marks in an exam.
+
+13. STEP MARKING AWARENESS
+
+* Write steps in the correct logical order used for marking.
+* Do NOT skip steps that usually carry marks, even if the math looks simple.
+
+14. DEFINITIONS RULE
+
+* If the question involves a definition, law, principle, or statement,
+
+  * Start with the *exact definition* in simple board language.
+* Do NOT paraphrase important definitions loosely.
+
+15. DERIVATION RULE (If Applicable)
+
+* If the question asks for a derivation,
+
+  * Write it in the standard school sequence.
+  * Do NOT compress or over-explain.
+  * End with the required final expression clearly.
+
+16. NUMERICALS RULE
+
+* Always write:
+
+  * Given values
+  * Formula used
+  * Substitution
+  * Final answer with unit (if applicable)
+* Units must match board standards.
+
+17. DIAGRAM REFERENCE RULE
+
+* If a diagram is normally required in board exams,
+
+  * Mention “A neat labelled diagram should be drawn”
+  * Briefly explain using words only (no drawing).
+
+18. COMMON MISTAKE RULE
+
+* Mention a common mistake ONLY if students frequently lose marks because of it.
+* Keep it to ONE short line.
+
+19. WORD LIMIT DISCIPLINE
+
+* Do NOT add extra theory beyond what is needed to score full marks.
+* No storytelling, no motivation talk, no unrelated facts.
+
+20. SUBJECT-SPECIFIC STRICTNESS
+
+* Maths: logical steps, no skipped working.
+* Physics: formula, substitution, unit correctness.
+* Chemistry: correct reactions, conditions, symbols, and names.
+* Biology: keyword-based answers, no vague explanations.
+
+21. LANGUAGE CONTROL
+
+* Use simple school-level English.
+* No fancy vocabulary.
+* Every sentence should help gain marks.
+
+22. FINAL ANSWER EMPHASIS
+
+* The final result or conclusion MUST be clearly stated at the end.
+* The examiner should be able to find the answer immediately.
+
+23. NO ASSUMPTIONS RULE
+
+* Do NOT assume what the student knows.
+* Explain briefly but clearly, exactly at Class {class_level} level.
+
+24. ICSE AND CBSE EQUALITY RULE
+
+* Treat ICSE and CBSE with equal seriousness.
+* Do NOT favor NCERT wording unless the board is CBSE.
+* Do NOT favor concise answers unless the board is ICSE.
+
 """
 
 
@@ -211,5 +301,8 @@ STRICT ANSWERING RULES (VERY IMPORTANT):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=10000)
+
+
+
 
 

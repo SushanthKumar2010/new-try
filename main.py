@@ -20,7 +20,7 @@ ALLOWED_BOARDS = {"ICSE", "CBSE"}
 # ======================
 
 app = FastAPI(
-    title="Class 9 & 10 AI Tutor",
+    title="Class 8, 9, 10, 11, & 12 AI Tutor",
     description="FastAPI backend for ICSE, CBSE, & SSLC Class 8, 9, 10, 11 & 12 tutoring",
     version="1.0.0",
 )
@@ -59,7 +59,9 @@ def get_intro(payload: dict):
 
     if board in ALLOWED_BOARDS:
         board_text = f"{board} Class"
-    else:
+    else if:
+        board_text = "Class"
+    else :
         board_text = "Class"
 
     intro = (
@@ -306,6 +308,7 @@ STRICT ANSWERING RULES (VERY IMPORTANT):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=10000)
+
 
 
 

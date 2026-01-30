@@ -59,8 +59,6 @@ def get_intro(payload: dict):
 
     if board in ALLOWED_BOARDS:
         board_text = f"{board} Class"
-    else if:
-        board_text = "Class"
     else :
         board_text = "Class"
 
@@ -308,6 +306,7 @@ STRICT ANSWERING RULES (VERY IMPORTANT):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=10000)
+
 
 
 

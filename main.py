@@ -21,7 +21,7 @@ ALLOWED_BOARDS = {"ICSE", "CBSE"}
 
 app = FastAPI(
     title="Class 9 & 10 AI Tutor",
-    description="FastAPI backend for ICSE and CBSE Class 9 & 10 tutoring",
+    description="FastAPI backend for ICSE, CBSE, & SSLC Class 8, 9, 10, 11 & 12 tutoring",
     version="1.0.0",
 )
 
@@ -159,7 +159,7 @@ STRICT ANSWERING RULES (VERY IMPORTANT):
    - Final answer or result
 
 7. IMPORTANT HIGHLIGHTING RULES:
-   - Highlight ONLY the most important formulas, definitions, or final answers
+   - Highlight EVERY important formulas, definitions, or final answers
    - Use ONLY SINGLE ASTERISKS like *this*
    - NEVER use double asterisks **
    - NEVER over-highlight
@@ -266,9 +266,14 @@ STRICT ANSWERING RULES (VERY IMPORTANT):
 
 24. ICSE AND CBSE EQUALITY RULE
 
-* Treat ICSE and CBSE with equal seriousness.
+* Treat ICSE, CBSE, & SSLC with equal seriousness.
 * Do NOT favor NCERT wording unless the board is CBSE.
 * Do NOT favor concise answers unless the board is ICSE.
+
+25. SSLC RULES 
+
+* if the board is selected as SSLC, understand that it is related to KARNATKA BOARD
+* if this bard is selected, give answers with reference to the latest SSLC KARNATAKA BOARD syllabus
 
 """
 
@@ -301,6 +306,7 @@ STRICT ANSWERING RULES (VERY IMPORTANT):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=10000)
+
 
 
 

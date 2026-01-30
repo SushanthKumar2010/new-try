@@ -13,7 +13,7 @@ if not GEMINI_API_KEY:
 
 MODEL_NAME = "gemini-2.5-flash-lite"
 
-ALLOWED_BOARDS = {"ICSE", "CBSE"}
+ALLOWED_BOARDS = {"ICSE", "CBSE", "SSLC"}
 
 # ======================
 # APP SETUP
@@ -306,6 +306,7 @@ STRICT ANSWERING RULES (VERY IMPORTANT):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=10000)
+
 
 
 

@@ -11,7 +11,7 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 if not GEMINI_API_KEY:
     raise RuntimeError("GEMINI_API_KEY not set")
 
-MODEL_NAME = "gemini-3-pro-preview"
+MODEL_NAME = "gemini-2.5-flash-lite"
 
 ALLOWED_BOARDS = {"ICSE", "CBSE", "SSLC"}
 
@@ -301,6 +301,7 @@ longand valuable answers. And also mention the thing which user says in the inpu
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=10000)
+
 
 
 

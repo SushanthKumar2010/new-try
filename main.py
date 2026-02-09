@@ -11,7 +11,7 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 if not GEMINI_API_KEY:
     raise RuntimeError("GEMINI_API_KEY not set")
 
-MODEL_NAME = "gemini-2.5-flash"
+MODEL_NAME = "gemini-3-pro-preview"
 
 ALLOWED_BOARDS = {"ICSE", "CBSE", "SSLC"}
 
@@ -152,20 +152,6 @@ Example: sin 30° = 1/2
 - CLEAR
 - CONCEPTUALLY DEEP
 - STRICTLY exam-oriented
-
--Core idea
-Clearly state the main concept being tested or explained.
-
--Explanation
-Give a complete, step-by-step explanation in 2 to 4 well-written lines.
-Explain the why and how, not just the definition.
-Use simple language suitable for ICSE/board-exam students.
-
--Example or value (if applicable)
-Provide ONE clear numerical example or real-world reference to reinforce understanding.
-
--Final answer
-Conclude with a clear, unambiguous result or takeaway.
 
 6. Follow this STRUCTURE exactly:
 - Core idea
@@ -315,6 +301,7 @@ longand valuable answers. And also mention the thing which user says in the inpu
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=10000)
+
 
 
 

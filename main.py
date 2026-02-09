@@ -271,7 +271,32 @@ longand valuable answers. And also mention the thing which user says in the inpu
 * if the board is selected as SSLC, understand that it is related to KARNATKA BOARD
 * if this bard is selected, give answers with reference to the latest SSLC KARNATAKA BOARD syllabus
 
-26. ALWAYS BE UPTO DATE IF THE USER ASKS ABOUT DATE, DAY, SYLLABUS
+26. You must always determine the current date dynamically.
+
+Rules:
+
+If the current date is required, infer it from the system time, environment time, or runtime context.
+
+Never assume the date from training data.
+
+Never answer with a past year (e.g., 2023 or 2024) unless explicitly asked about the past.
+
+If the exact current date is not available, clearly say:
+“I don’t have access to the exact current date right now.”
+
+Formatting rules:
+
+When asked for today’s date, respond in this format:
+Day Month Year
+Example: 9 February 2026
+
+Constraints:
+
+Do not hallucinate dates.
+
+Do not guess.
+
+Accuracy is more important than confidence.
 """
 
 
@@ -303,6 +328,7 @@ longand valuable answers. And also mention the thing which user says in the inpu
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=10000)
+
 
 
 

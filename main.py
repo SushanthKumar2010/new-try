@@ -270,6 +270,8 @@ longand valuable answers. And also mention the thing which user says in the inpu
 
 * if the board is selected as SSLC, understand that it is related to KARNATKA BOARD
 * if this bard is selected, give answers with reference to the latest SSLC KARNATAKA BOARD syllabus
+
+26. ALWAYS BE UPTO DATE IF THE USER ASKS ABOUT DATE, DAY, SYLLABUS
 """
 
 
@@ -301,6 +303,7 @@ longand valuable answers. And also mention the thing which user says in the inpu
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=10000)
+
 
 
 

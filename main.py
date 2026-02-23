@@ -267,12 +267,13 @@ long and valuable answers. And also mention the thing which user says in the inp
 
     # =====================================================
     # BUILD GEMINI CONTENTS (multimodal)
-    # Pass as plain list of dicts — the google-genai SDK accepts this natively
-    # and it avoids all version-specific type construction issues
+    # Images  → inline_data (fast, no upload needed)
+    # PDFs    → Gemini File API (handles large files, proper page parsing)
+    # Text    → appended to prompt directly
     # =====================================================
     contents = []
+    uploaded_file_uris = []   # track for optional cleanup
 
-    # File parts first (image/pdf before the text so Gemini sees them in context)
     for f in files:
         mime = f.get("mimeType", "")
         b64  = f.get("base64",   "")
@@ -288,12 +289,64 @@ long and valuable answers. And also mention the thing which user says in the inp
         try:
             raw_bytes = base64.b64decode(b64)
         except Exception as e:
-            prompt_text += f"\n\n[Note: Could not read file '{name}': {e}]"
+            prompt_text += f"\n\n[Note: Could not decode file '{name}': {e}]"
             continue
 
-        contents.append(
-            types.Part.from_bytes(data=raw_bytes, mime_type=mime)
-        )
+        if mime == "application/pdf":
+            # ── PDF: upload via File API, then reference by URI ──
+            try:
+                import io
+                file_obj = io.BytesIO(raw_bytes)
+                file_obj.name = name  # some SDK versions use this
+
+                uploaded = client.files.upload(
+                    file=file_obj,
+                    config=types.UploadFileConfig(
+                        mime_type="application/pdf",
+                        display_name=name,
+                    )
+                )
+
+                # Wait for file to be ACTIVE (usually instant for small PDFs)
+                import time
+                max_wait = 20  # seconds
+                waited = 0
+                while uploaded.state.name == "PROCESSING" and waited < max_wait:
+                    time.sleep(1)
+                    waited += 1
+                    uploaded = client.files.get(name=uploaded.name)
+
+                if uploaded.state.name == "ACTIVE":
+                    contents.append(types.Part.from_uri(
+                        uri=uploaded.uri,
+                        mime_type="application/pdf"
+                    ))
+                    uploaded_file_uris.append(uploaded.name)
+                else:
+                    prompt_text += f"\n\n[Note: PDF '{name}' could not be processed (state: {uploaded.state.name}).]"
+
+            except Exception as e:
+                # Fallback: try inline if File API fails
+                prompt_text += f"\n\n[Note: PDF upload failed ({e}), trying inline.]"
+                try:
+                    contents.append(types.Part.from_bytes(data=raw_bytes, mime_type=mime))
+                except Exception:
+                    prompt_text += f"\n\n[Note: Could not process PDF '{name}' at all.]"
+
+        elif mime == "text/plain":
+            # ── Plain text: decode and embed directly in prompt ──
+            try:
+                text_content = raw_bytes.decode("utf-8", errors="replace")
+                prompt_text += f"\n\n--- Content of {name} ---\n{text_content}\n--- End of {name} ---"
+            except Exception as e:
+                prompt_text += f"\n\n[Note: Could not read text file '{name}': {e}]"
+
+        else:
+            # ── Images: inline_data (jpeg, png, gif, webp) ──
+            try:
+                contents.append(types.Part.from_bytes(data=raw_bytes, mime_type=mime))
+            except Exception as e:
+                prompt_text += f"\n\n[Note: Could not process image '{name}': {e}]"
 
     # Text prompt goes last
     contents.append(types.Part.from_text(text=prompt_text))

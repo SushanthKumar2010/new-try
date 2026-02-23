@@ -390,60 +390,6 @@ long and valuable answers. And also mention the thing which user says in the inp
     )
 
 # =====================================================
-# IMAGE GENERATION ROUTE
-# Uses gemini-2.0-flash-exp — confirmed working model for native image generation
-# response_modalities=["Text", "Image"] with title case (confirmed correct)
-# Access parts via response.candidates[0].content.parts checking part.inline_data
-# =====================================================
-@app.post("/api/generate-image")
-async def generate_image(payload: dict):
-    from fastapi.responses import JSONResponse
-
-    prompt      = (payload.get("prompt") or "").strip()
-    board       = (payload.get("board")  or "ICSE").strip().upper()
-    class_level = (payload.get("class_level") or "10").strip()
-    subject     = (payload.get("subject") or "General").strip()
-
-    if not prompt:
-        raise HTTPException(status_code=400, detail="Prompt required")
-
-    enriched = (
-        f"Generate a clear, labelled educational diagram or illustration: {prompt}. "
-        f"Style: clean scientific diagram suitable for a Class {class_level} {board} {subject} textbook. "
-        f"Use clear labels, simple lines, and minimal colour. White background. "
-        f"No text watermarks. No decorative borders."
-    )
-
-    try:
-        loop = asyncio.get_event_loop()
-
-        def do_generate():
-            return client.models.generate_content(
-                model="gemini-2.0-flash-exp",
-                contents=enriched,
-                config=types.GenerateContentConfig(
-                    response_modalities=["Text", "Image"],
-                ),
-            )
-
-        response = await loop.run_in_executor(None, do_generate)
-
-        for part in response.candidates[0].content.parts:
-            if part.inline_data is not None:
-                raw     = part.inline_data.data
-                img_b64 = base64.b64encode(raw).decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw
-                return JSONResponse({"image": img_b64, "mimeType": part.inline_data.mime_type})
-
-        text_parts = [p.text for p in response.candidates[0].content.parts if getattr(p, "text", None)]
-        return JSONResponse({
-            "error":  "No image was generated.",
-            "detail": " ".join(text_parts) or "No image returned. Try rephrasing."
-        }, status_code=422)
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Image generation failed: {str(e)}")
-
-
 # LOCAL RUN
 # =====================================================
 if __name__ == "__main__":

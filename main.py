@@ -263,6 +263,10 @@ long and valuable answers. And also mention the thing which user says in the inp
 * If it is a PDF, treat it as a document and answer based on its content.
 * Always relate the file content back to {board} Class {class_level} {subject} syllabus.
 * If the image quality is poor or unclear, state that briefly and answer based on what is visible.
+
+27. CORRECTIONS : 
+
+recheck each and every answer and give the output if you are confideent with the answer. if you are using reinforcement learning to generate an answer, check the answer thrice
 """
 
     # =====================================================
@@ -418,7 +422,7 @@ async def generate_image(payload: dict):
 
         def do_generate():
             return client.models.generate_content(
-                model="gemini-2.0-flash-preview-image-generation",
+                model="gemini-3-pro-image-preview",
                 contents=enriched,
                 config=types.GenerateContentConfig(
                     response_modalities=["IMAGE", "TEXT"],
@@ -427,19 +431,30 @@ async def generate_image(payload: dict):
 
         response = await loop.run_in_executor(None, do_generate)
 
-        for part in response.candidates[0].content.parts:
-            if part.inline_data and part.inline_data.mime_type.startswith("image/"):
-                img_b64  = base64.b64encode(part.inline_data.data).decode("utf-8")
-                img_mime = part.inline_data.mime_type
-                return JSONResponse({
-                    "image":    img_b64,
-                    "mimeType": img_mime,
-                })
+        # gemini-3-pro-image-preview uses thinking — iterate all candidates/parts
+        for candidate in response.candidates:
+            for part in candidate.content.parts:
+                # inline_data is the standard image response format
+                if hasattr(part, "inline_data") and part.inline_data:
+                    mime = getattr(part.inline_data, "mime_type", "") or ""
+                    if mime.startswith("image/"):
+                        raw = part.inline_data.data
+                        # data may already be bytes or base64 string
+                        if isinstance(raw, (bytes, bytearray)):
+                            img_b64 = base64.b64encode(raw).decode("utf-8")
+                        else:
+                            img_b64 = raw  # already base64 string
+                        return JSONResponse({"image": img_b64, "mimeType": mime})
 
-        # Gemini returned text only — no image generated
-        text_parts = [p.text for p in response.candidates[0].content.parts if p.text]
+        # No image found — return any text Gemini produced as the error detail
+        text_parts = []
+        for candidate in response.candidates:
+            for part in candidate.content.parts:
+                if hasattr(part, "text") and part.text:
+                    text_parts.append(part.text)
+
         return JSONResponse({
-            "error": "No image was generated.",
+            "error":  "No image was generated.",
             "detail": " ".join(text_parts) or "Try rephrasing your prompt."
         }, status_code=422)
 

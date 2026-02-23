@@ -391,11 +391,12 @@ long and valuable answers. And also mention the thing which user says in the inp
 
 # =====================================================
 # IMAGE GENERATION ROUTE
-# Uses gemini-3-pro-image-preview (Gemini 3 Pro Image)
+# Uses gemini-3-pro-image-preview with Modality enum (confirmed correct pattern)
 # =====================================================
 @app.post("/api/generate-image")
 async def generate_image(payload: dict):
     from fastapi.responses import JSONResponse
+    from google.genai.types import GenerateContentConfig, Modality
 
     prompt      = (payload.get("prompt") or "").strip()
     board       = (payload.get("board")  or "ICSE").strip().upper()
@@ -405,7 +406,6 @@ async def generate_image(payload: dict):
     if not prompt:
         raise HTTPException(status_code=400, detail="Prompt required")
 
-    # Enrich prompt for educational diagrams
     enriched = (
         f"Create a clear, labelled educational diagram or illustration: {prompt}. "
         f"Style: clean scientific diagram suitable for a Class {class_level} {board} {subject} textbook. "
@@ -420,29 +420,26 @@ async def generate_image(payload: dict):
             return client.models.generate_content(
                 model="gemini-3-pro-image-preview",
                 contents=enriched,
-                config=types.GenerateContentConfig(
-                    response_modalities=["TEXT", "IMAGE"],
-                    image_config=types.ImageConfig(
-                        aspect_ratio="4:3",
-                    ),
-                )
+                config=GenerateContentConfig(
+                    response_modalities=[Modality.TEXT, Modality.IMAGE],
+                ),
             )
 
         response = await loop.run_in_executor(None, do_generate)
 
-        # Access parts via candidates[0].content.parts (confirmed correct pattern)
-        parts = response.candidates[0].content.parts
-
-        for part in parts:
-            if part.inline_data and part.inline_data.mime_type.startswith("image/"):
+        # Confirmed correct access pattern from Google docs
+        for part in response.candidates[0].content.parts:
+            if part.inline_data:
                 raw     = part.inline_data.data
                 img_b64 = base64.b64encode(raw).decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw
                 return JSONResponse({"image": img_b64, "mimeType": part.inline_data.mime_type})
 
-        # No image part found — return text if any for debugging
-        text_parts = [p.text for p in parts if hasattr(p, "text") and p.text]
-        detail     = " ".join(text_parts) if text_parts else "No image returned. Try rephrasing."
-        return JSONResponse({"error": "No image was generated.", "detail": detail}, status_code=422)
+        # No image — return text parts as debug info
+        text_parts = [p.text for p in response.candidates[0].content.parts if p.text]
+        return JSONResponse({
+            "error":  "No image was generated.",
+            "detail": " ".join(text_parts) or "No image returned. Try rephrasing."
+        }, status_code=422)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Image generation failed: {str(e)}")

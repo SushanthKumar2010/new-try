@@ -263,10 +263,6 @@ long and valuable answers. And also mention the thing which user says in the inp
 * If it is a PDF, treat it as a document and answer based on its content.
 * Always relate the file content back to {board} Class {class_level} {subject} syllabus.
 * If the image quality is poor or unclear, state that briefly and answer based on what is visible.
-
-27. CORRECTIONS : 
-
-recheck each and every answer and give the output if you are confideent with the answer. if you are using reinforcement learning to generate an answer, check the answer thrice
 """
 
     # =====================================================
@@ -395,7 +391,7 @@ recheck each and every answer and give the output if you are confideent with the
 
 # =====================================================
 # IMAGE GENERATION ROUTE
-# Uses Gemini 2.0 Flash native image output (free tier)
+# Uses gemini-3-pro-image-preview (Gemini 3 Pro Image)
 # =====================================================
 @app.post("/api/generate-image")
 async def generate_image(payload: dict):
@@ -425,44 +421,33 @@ async def generate_image(payload: dict):
                 model="gemini-3-pro-image-preview",
                 contents=enriched,
                 config=types.GenerateContentConfig(
-                    response_modalities=["IMAGE", "TEXT"],
+                    response_modalities=["TEXT", "IMAGE"],
+                    image_config=types.ImageConfig(
+                        aspect_ratio="4:3",
+                    ),
                 )
             )
 
         response = await loop.run_in_executor(None, do_generate)
 
-        # gemini-3-pro-image-preview uses thinking — iterate all candidates/parts
-        for candidate in response.candidates:
-            for part in candidate.content.parts:
-                # inline_data is the standard image response format
-                if hasattr(part, "inline_data") and part.inline_data:
-                    mime = getattr(part.inline_data, "mime_type", "") or ""
-                    if mime.startswith("image/"):
-                        raw = part.inline_data.data
-                        # data may already be bytes or base64 string
-                        if isinstance(raw, (bytes, bytearray)):
-                            img_b64 = base64.b64encode(raw).decode("utf-8")
-                        else:
-                            img_b64 = raw  # already base64 string
-                        return JSONResponse({"image": img_b64, "mimeType": mime})
+        # Access parts via candidates[0].content.parts (confirmed correct pattern)
+        parts = response.candidates[0].content.parts
 
-        # No image found — return any text Gemini produced as the error detail
-        text_parts = []
-        for candidate in response.candidates:
-            for part in candidate.content.parts:
-                if hasattr(part, "text") and part.text:
-                    text_parts.append(part.text)
+        for part in parts:
+            if part.inline_data and part.inline_data.mime_type.startswith("image/"):
+                raw     = part.inline_data.data
+                img_b64 = base64.b64encode(raw).decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw
+                return JSONResponse({"image": img_b64, "mimeType": part.inline_data.mime_type})
 
-        return JSONResponse({
-            "error":  "No image was generated.",
-            "detail": " ".join(text_parts) or "Try rephrasing your prompt."
-        }, status_code=422)
+        # No image part found — return text if any for debugging
+        text_parts = [p.text for p in parts if hasattr(p, "text") and p.text]
+        detail     = " ".join(text_parts) if text_parts else "No image returned. Try rephrasing."
+        return JSONResponse({"error": "No image was generated.", "detail": detail}, status_code=422)
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Image generation failed: {str(e)}")
 
 
-# =====================================================
 # LOCAL RUN
 # =====================================================
 if __name__ == "__main__":

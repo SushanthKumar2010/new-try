@@ -205,3 +205,4 @@ longand valuable answers. And also mention the thing which user says in the inpu
             yield f"event: error\ndata: {str(e)}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
+

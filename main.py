@@ -267,11 +267,12 @@ long and valuable answers. And also mention the thing which user says in the inp
 
     # =====================================================
     # BUILD GEMINI CONTENTS (multimodal)
+    # Pass as plain list of dicts — the google-genai SDK accepts this natively
+    # and it avoids all version-specific type construction issues
     # =====================================================
-    # Build as a list of part dicts — works across all google-genai SDK versions
-    content_parts = []
+    contents = []
 
-    # Attach files first (Gemini reads them before the text prompt)
+    # File parts first (image/pdf before the text so Gemini sees them in context)
     for f in files:
         mime = f.get("mimeType", "")
         b64  = f.get("base64",   "")
@@ -281,57 +282,21 @@ long and valuable answers. And also mention the thing which user says in the inp
             continue
 
         if mime not in SUPPORTED_MIME_TYPES:
-            prompt_text += f"\n\n[Note: File '{name}' ({mime}) could not be processed — unsupported format.]"
+            prompt_text += f"\n\n[Note: File '{name}' ({mime}) is unsupported and was skipped.]"
             continue
 
         try:
             raw_bytes = base64.b64decode(b64)
-        except Exception as decode_err:
-            prompt_text += f"\n\n[Note: Could not decode file '{name}': {decode_err}]"
+        except Exception as e:
+            prompt_text += f"\n\n[Note: Could not read file '{name}': {e}]"
             continue
 
-        # Use dict-style inline_data — compatible with all SDK versions
-        content_parts.append({
-            "inline_data": {
-                "mime_type": mime,
-                "data": raw_bytes,
-            }
-        })
+        contents.append(
+            types.Part.from_bytes(data=raw_bytes, mime_type=mime)
+        )
 
-    # Add the text prompt last
-    content_parts.append({"text": prompt_text})
-
-    # Wrap in a Content object with user role
-    # Handles both old (types.Part(inline_data=...)) and new (Part.from_bytes) SDK styles
-    def make_part(p):
-        if "inline_data" in p:
-            try:
-                # Newer SDK (>= 0.8)
-                return types.Part.from_bytes(
-                    data=p["inline_data"]["data"],
-                    mime_type=p["inline_data"]["mime_type"]
-                )
-            except AttributeError:
-                # Older SDK — use constructor directly
-                return types.Part(
-                    inline_data=types.Blob(
-                        mime_type=p["inline_data"]["mime_type"],
-                        data=p["inline_data"]["data"],
-                    )
-                )
-        else:
-            try:
-                return types.Part.from_text(text=p["text"])
-            except AttributeError:
-                return types.Part(text=p["text"])
-
-    built_parts = [make_part(p) for p in content_parts]
-
-    try:
-        contents = types.Content(role="user", parts=built_parts)
-    except Exception:
-        # Fallback: pass parts list directly (some SDK versions accept this)
-        contents = built_parts
+    # Text prompt goes last
+    contents.append(types.Part.from_text(text=prompt_text))
 
     # =====================================================
     # STREAM GENERATOR
@@ -377,4 +342,3 @@ long and valuable answers. And also mention the thing which user says in the inp
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=10000)
-

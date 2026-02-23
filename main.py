@@ -1,6 +1,7 @@
 import os
 import asyncio
 import json
+import base64
 from datetime import datetime
 
 from fastapi import FastAPI, HTTPException
@@ -8,9 +9,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
 from google import genai
+from google.genai import types
 
 # =====================================================
-# ENV CHECK (prevents Render silent crash)
+# ENV CHECK
 # =====================================================
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if not GEMINI_API_KEY:
@@ -19,7 +21,7 @@ if not GEMINI_API_KEY:
 # =====================================================
 # APP INIT
 # =====================================================
-app = FastAPI(title="AI Tutor Backend", version="2.0")
+app = FastAPI(title="AI Tutor Backend", version="3.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -33,6 +35,13 @@ app.add_middleware(
 # =====================================================
 ALLOWED_BOARDS = {"ICSE", "CBSE", "SSLC"}
 
+# Supported MIME types Gemini can process
+SUPPORTED_MIME_TYPES = {
+    "image/jpeg", "image/png", "image/gif", "image/webp",
+    "application/pdf",
+    "text/plain",
+}
+
 client = genai.Client(api_key=GEMINI_API_KEY)
 
 # =====================================================
@@ -43,36 +52,41 @@ def root():
     return {"status": "running"}
 
 # =====================================================
-# SSE ASK ROUTE
+# SSE ASK ROUTE  (multimodal)
 # =====================================================
 @app.post("/api/ask")
 async def ask_question(payload: dict):
 
-    board = (payload.get("board") or "ICSE").strip().upper()
-    class_level = (payload.get("class_level") or "10").strip()
-    subject = (payload.get("subject") or "General").strip()
-    chapter = (payload.get("chapter") or "General").strip()
-    question = (payload.get("question") or "").strip()
-    model_choice = (payload.get("model") or "t1").lower()
+    board        = (payload.get("board")        or "ICSE").strip().upper()
+    class_level  = (payload.get("class_level")  or "10").strip()
+    subject      = (payload.get("subject")      or "General").strip()
+    chapter      = (payload.get("chapter")      or "General").strip()
+    question     = (payload.get("question")     or "").strip()
+    model_choice = (payload.get("model")        or "t1").lower()
+    files        =  payload.get("files")        or []   # list of {name, mimeType, base64}
 
     if board not in ALLOWED_BOARDS:
         raise HTTPException(status_code=400, detail="Invalid board")
 
-    if not question:
-        raise HTTPException(status_code=400, detail="Question required")
+    if not question and not files:
+        raise HTTPException(status_code=400, detail="Question or file required")
+
+    # If no question text but files exist, add a default prompt
+    if not question and files:
+        question = "Please analyse this and answer any questions based on it."
 
     # =====================================================
     # MODEL SELECT
     # =====================================================
     if model_choice == "t2":
-        model_name = "gemini-3-pro-preview" #gemini-3-flash-preview
+        model_name = "gemini-2.5-pro-preview-06-05"
     else:
         model_name = "gemini-2.5-flash-lite"
 
     # =====================================================
-    # PROMPT (EXACT — NOT MODIFIED)
+    # PROMPT
     # =====================================================
-    prompt = f"""
+    prompt_text = f"""
 You are an expert {board} Class {class_level} teacher.
 
 Board: {board}
@@ -148,9 +162,9 @@ Example: sin 30° = 1/2
 - Clear
 - Suitable for Class {class_level} students
 
-10. Output structure :
+10. Output structure:
 - while giving the output don't be dry, instead be friendly and conversational with the students and generate
-longand valuable answers. And also mention the thing which user says in the input "ex: class 10, ICSE, maths, ..." and you should generate output with reference to this.
+long and valuable answers. And also mention the thing which user says in the input "ex: class 10, ICSE, maths, ..." and you should generate output with reference to this.
 
 11. BOARD ALIGNMENT RULE
 
@@ -194,7 +208,7 @@ longand valuable answers. And also mention the thing which user says in the inpu
 17. DIAGRAM REFERENCE RULE
 
 * If a diagram is normally required in board exams,
-* Mention “A neat labelled diagram should be drawn”
+* Mention "A neat labelled diagram should be drawn"
 * Briefly explain using words only (no drawing).
 
 18. COMMON MISTAKE RULE
@@ -240,17 +254,61 @@ longand valuable answers. And also mention the thing which user says in the inpu
 
 * if the board is selected as SSLC, understand that it is related to KARNATKA BOARD
 * if this board is selected, give answers with reference to the latest SSLC KARNATAKA BOARD syllabus
+
+26. FILE / IMAGE RULES (applies when files are attached)
+
+* If an image is attached, carefully read and analyse it before answering.
+* If it is a question paper or worksheet, solve ALL visible questions step by step.
+* If it is a diagram, explain what the diagram shows in exam-appropriate language.
+* If it is a PDF, treat it as a document and answer based on its content.
+* Always relate the file content back to {board} Class {class_level} {subject} syllabus.
+* If the image quality is poor or unclear, state that briefly and answer based on what is visible.
 """
+
+    # =====================================================
+    # BUILD GEMINI CONTENTS (multimodal)
+    # =====================================================
+    content_parts = []
+
+    # Attach files first (Gemini reads them before the text prompt)
+    for f in files:
+        mime = f.get("mimeType", "")
+        b64  = f.get("base64",   "")
+        name = f.get("name",     "file")
+
+        if not b64:
+            continue
+
+        if mime not in SUPPORTED_MIME_TYPES:
+            # Unsupported — skip silently (or you could append a note to prompt)
+            prompt_text += f"\n\n[Note: File '{name}' ({mime}) could not be processed — unsupported format.]"
+            continue
+
+        try:
+            raw_bytes = base64.b64decode(b64)
+        except Exception:
+            continue
+
+        content_parts.append(
+            types.Part(
+                inline_data=types.Blob(
+                    mime_type=mime,
+                    data=raw_bytes,
+                )
+            )
+        )
+
+    # Add the text prompt last
+    content_parts.append(types.Part(text=prompt_text))
 
     # =====================================================
     # STREAM GENERATOR
     # =====================================================
     async def stream():
-
         try:
             response_stream = client.models.generate_content_stream(
                 model=model_name,
-                contents=prompt
+                contents=content_parts,
             )
 
             loop = asyncio.get_event_loop()
@@ -262,7 +320,6 @@ longand valuable answers. And also mention the thing which user says in the inpu
                 chunk = await loop.run_in_executor(None, get_next)
                 if chunk is None:
                     break
-
                 text = chunk.text or ""
                 if text:
                     yield f"data: {json.dumps(text)}\n\n"
@@ -276,8 +333,8 @@ longand valuable answers. And also mention the thing which user says in the inpu
         stream(),
         media_type="text/event-stream",
         headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
+            "Cache-Control":    "no-cache",
+            "Connection":       "keep-alive",
             "X-Accel-Buffering": "no",
         },
     )
@@ -288,4 +345,3 @@ longand valuable answers. And also mention the thing which user says in the inpu
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=10000)
-

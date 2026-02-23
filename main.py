@@ -64,11 +64,10 @@ async def ask_question(payload: dict):
     # =====================================================
     # MODEL SELECT
     # =====================================================
-    model_name = (
-        "gemini-3-pro-preview"
-        if model_choice == "t2"
-        else "gemini-2.5-flash-lite"
-    )
+    if model_choice == "t2":
+        model_name = "gemini-3-pro-preview" #gemini-3-flash-preview
+    else:
+        model_name = "gemini-2.5-flash-lite"
 
     # =====================================================
     # PROMPT (EXACT — NOT MODIFIED)
@@ -289,3 +288,4 @@ longand valuable answers. And also mention the thing which user says in the inpu
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=10000)
+

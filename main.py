@@ -1,6 +1,30 @@
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware
+import asyncio
 import json
+from google import genai
 
+app = FastAPI()
+
+# ---------------- CORS ----------------
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ---------------- CONFIG ----------------
+ALLOWED_BOARDS = {"ICSE", "CBSE", "SSLC"}
+
+client = genai.Client(api_key="YOUR_GEMINI_API_KEY")
+
+
+# =========================================================
+# ASK QUESTION ENDPOINT (STREAMING)
+# =========================================================
 @app.post("/api/ask")
 async def ask_question(payload: dict):
 
@@ -19,6 +43,9 @@ async def ask_question(payload: dict):
 
     model_name = "gemini-3-pro-preview" if model_choice == "t2" else "gemini-2.5-flash-lite"
 
+    # =========================================================
+    # PROMPT (UNCHANGED FROM YOUR INPUT)
+    # =========================================================
     prompt = f"""You are an expert {board} Class {class_level} teacher.
 
 Board: {board}
@@ -185,8 +212,12 @@ longand valuable answers. And also mention the thing which user says in the inpu
 25. SSLC RULES
 
 * if the board is selected as SSLC, understand that it is related to KARNATKA BOARD
-* if this bard is selected, give answers with reference to the latest SSLC KARNATAKA BOARD syllabus"""
+* if this bard is selected, give answers with reference to the latest SSLC KARNATAKA BOARD syllabus
+"""
 
+    # =========================================================
+    # STREAM GENERATOR
+    # =========================================================
     async def event_stream():
         try:
             stream = client.models.generate_content_stream(
@@ -194,7 +225,16 @@ longand valuable answers. And also mention the thing which user says in the inpu
                 contents=prompt,
             )
 
-            for chunk in stream:
+            loop = asyncio.get_event_loop()
+
+            def next_chunk():
+                return next(stream, None)
+
+            while True:
+                chunk = await loop.run_in_executor(None, next_chunk)
+                if chunk is None:
+                    break
+
                 text = chunk.text or ""
                 if text:
                     yield f"data: {json.dumps(text)}\n\n"
@@ -204,5 +244,15 @@ longand valuable answers. And also mention the thing which user says in the inpu
         except Exception as e:
             yield f"event: error\ndata: {str(e)}\n\n"
 
-    return StreamingResponse(event_stream(), media_type="text/event-stream")
-
+    # =========================================================
+    # RETURN STREAM RESPONSE
+    # =========================================================
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )

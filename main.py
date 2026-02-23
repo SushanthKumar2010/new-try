@@ -44,7 +44,7 @@ async def ask_question(payload: dict):
     model_name = "gemini-3-pro-preview" if model_choice == "t2" else "gemini-2.5-flash-lite"
 
     # =========================================================
-    # PROMPT (UNCHANGED FROM YOUR INPUT)
+    # PROMPT (UNCHANGED EXACTLY)
     # =========================================================
     prompt = f"""You are an expert {board} Class {class_level} teacher.
 
@@ -212,7 +212,7 @@ longand valuable answers. And also mention the thing which user says in the inpu
 25. SSLC RULES
 
 * if the board is selected as SSLC, understand that it is related to KARNATKA BOARD
-* if this bard is selected, give answers with reference to the latest SSLC KARNATAKA BOARD syllabus
+* if this board is selected, give answers with reference to the latest SSLC KARNATAKA BOARD syllabus
 """
 
     # =========================================================
@@ -244,9 +244,6 @@ longand valuable answers. And also mention the thing which user says in the inpu
         except Exception as e:
             yield f"event: error\ndata: {str(e)}\n\n"
 
-    # =========================================================
-    # RETURN STREAM RESPONSE
-    # =========================================================
     return StreamingResponse(
         event_stream(),
         media_type="text/event-stream",

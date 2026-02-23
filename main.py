@@ -390,6 +390,64 @@ long and valuable answers. And also mention the thing which user says in the inp
     )
 
 # =====================================================
+# IMAGE GENERATION ROUTE
+# Uses Gemini 2.0 Flash native image output (free tier)
+# =====================================================
+@app.post("/api/generate-image")
+async def generate_image(payload: dict):
+    from fastapi.responses import JSONResponse
+
+    prompt      = (payload.get("prompt") or "").strip()
+    board       = (payload.get("board")  or "ICSE").strip().upper()
+    class_level = (payload.get("class_level") or "10").strip()
+    subject     = (payload.get("subject") or "General").strip()
+
+    if not prompt:
+        raise HTTPException(status_code=400, detail="Prompt required")
+
+    # Enrich prompt for educational diagrams
+    enriched = (
+        f"Create a clear, labelled educational diagram or illustration: {prompt}. "
+        f"Style: clean scientific diagram suitable for a Class {class_level} {board} {subject} textbook. "
+        f"Use clear labels, simple lines, and minimal colour. White background. "
+        f"No text watermarks. No decorative borders."
+    )
+
+    try:
+        loop = asyncio.get_event_loop()
+
+        def do_generate():
+            return client.models.generate_content(
+                model="gemini-2.0-flash-preview-image-generation",
+                contents=enriched,
+                config=types.GenerateContentConfig(
+                    response_modalities=["IMAGE", "TEXT"],
+                )
+            )
+
+        response = await loop.run_in_executor(None, do_generate)
+
+        for part in response.candidates[0].content.parts:
+            if part.inline_data and part.inline_data.mime_type.startswith("image/"):
+                img_b64  = base64.b64encode(part.inline_data.data).decode("utf-8")
+                img_mime = part.inline_data.mime_type
+                return JSONResponse({
+                    "image":    img_b64,
+                    "mimeType": img_mime,
+                })
+
+        # Gemini returned text only — no image generated
+        text_parts = [p.text for p in response.candidates[0].content.parts if p.text]
+        return JSONResponse({
+            "error": "No image was generated.",
+            "detail": " ".join(text_parts) or "Try rephrasing your prompt."
+        }, status_code=422)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =====================================================
 # LOCAL RUN
 # =====================================================
 if __name__ == "__main__":

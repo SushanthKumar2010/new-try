@@ -268,6 +268,7 @@ long and valuable answers. And also mention the thing which user says in the inp
     # =====================================================
     # BUILD GEMINI CONTENTS (multimodal)
     # =====================================================
+    # Build as a list of part dicts — works across all google-genai SDK versions
     content_parts = []
 
     # Attach files first (Gemini reads them before the text prompt)
@@ -276,30 +277,61 @@ long and valuable answers. And also mention the thing which user says in the inp
         b64  = f.get("base64",   "")
         name = f.get("name",     "file")
 
-        if not b64:
+        if not b64 or not mime:
             continue
 
         if mime not in SUPPORTED_MIME_TYPES:
-            # Unsupported — skip silently (or you could append a note to prompt)
             prompt_text += f"\n\n[Note: File '{name}' ({mime}) could not be processed — unsupported format.]"
             continue
 
         try:
             raw_bytes = base64.b64decode(b64)
-        except Exception:
+        except Exception as decode_err:
+            prompt_text += f"\n\n[Note: Could not decode file '{name}': {decode_err}]"
             continue
 
-        content_parts.append(
-            types.Part(
-                inline_data=types.Blob(
-                    mime_type=mime,
-                    data=raw_bytes,
-                )
-            )
-        )
+        # Use dict-style inline_data — compatible with all SDK versions
+        content_parts.append({
+            "inline_data": {
+                "mime_type": mime,
+                "data": raw_bytes,
+            }
+        })
 
     # Add the text prompt last
-    content_parts.append(types.Part(text=prompt_text))
+    content_parts.append({"text": prompt_text})
+
+    # Wrap in a Content object with user role
+    # Handles both old (types.Part(inline_data=...)) and new (Part.from_bytes) SDK styles
+    def make_part(p):
+        if "inline_data" in p:
+            try:
+                # Newer SDK (>= 0.8)
+                return types.Part.from_bytes(
+                    data=p["inline_data"]["data"],
+                    mime_type=p["inline_data"]["mime_type"]
+                )
+            except AttributeError:
+                # Older SDK — use constructor directly
+                return types.Part(
+                    inline_data=types.Blob(
+                        mime_type=p["inline_data"]["mime_type"],
+                        data=p["inline_data"]["data"],
+                    )
+                )
+        else:
+            try:
+                return types.Part.from_text(text=p["text"])
+            except AttributeError:
+                return types.Part(text=p["text"])
+
+    built_parts = [make_part(p) for p in content_parts]
+
+    try:
+        contents = types.Content(role="user", parts=built_parts)
+    except Exception:
+        # Fallback: pass parts list directly (some SDK versions accept this)
+        contents = built_parts
 
     # =====================================================
     # STREAM GENERATOR
@@ -308,7 +340,7 @@ long and valuable answers. And also mention the thing which user says in the inp
         try:
             response_stream = client.models.generate_content_stream(
                 model=model_name,
-                contents=content_parts,
+                contents=contents,
             )
 
             loop = asyncio.get_event_loop()

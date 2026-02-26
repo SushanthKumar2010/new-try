@@ -3,7 +3,6 @@ import asyncio
 import json
 import base64
 import io
-import time
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,7 +21,7 @@ if not GEMINI_API_KEY:
 # =====================================================
 # APP INIT
 # =====================================================
-app = FastAPI(title="AI Tutor Backend", version="4.0")
+app = FastAPI(title="AI Tutor Backend", version="4.1")
 
 app.add_middleware(
     CORSMiddleware,
@@ -42,13 +41,29 @@ SUPPORTED_MIME_TYPES = {
     "text/plain",
 }
 
-# FIX 1: cap output so model can't ramble and burn tokens
 MAX_OUTPUT_TOKENS = 1200
-
-# FIX 2: reject absurdly long inputs before they even hit Gemini
 MAX_QUESTION_LENGTH = 1500
 
 client = genai.Client(api_key=GEMINI_API_KEY)
+
+# =====================================================
+# GREETING DETECTION
+# =====================================================
+def is_greeting_or_casual(text: str) -> bool:
+    """Detect if message is just a greeting or casual chat"""
+    text_lower = text.lower().strip()
+    greetings = {
+        "hello", "hi", "hey", "hola", "namaste", "good morning", 
+        "good afternoon", "good evening", "what's up", "whats up",
+        "sup", "yo", "wassup", "how are you", "how r u", "hru"
+    }
+    # Single word/phrase greetings
+    if text_lower in greetings:
+        return True
+    # Short greetings with punctuation
+    if any(text_lower.startswith(g) for g in greetings) and len(text.split()) <= 4:
+        return True
+    return False
 
 # =====================================================
 # HEALTH ROUTE
@@ -58,7 +73,7 @@ def root():
     return {"status": "running"}
 
 # =====================================================
-# SSE ASK ROUTE  (multimodal)
+# SSE ASK ROUTE (multimodal)
 # =====================================================
 @app.post("/api/ask")
 async def ask_question(payload: dict):
@@ -77,7 +92,6 @@ async def ask_question(payload: dict):
     if not question and not files:
         raise HTTPException(status_code=400, detail="Question or file required")
 
-    # FIX 2: guard against token-burning long inputs
     if len(question) > MAX_QUESTION_LENGTH:
         raise HTTPException(
             status_code=400,
@@ -89,21 +103,30 @@ async def ask_question(payload: dict):
 
     # =====================================================
     # MODEL SELECT
-    # FIX 3: "gemini-3-flash-preview" was left as-is per your note.
-    #         "gemini-2.5-flash-lite" renamed to its correct preview ID.
     # =====================================================
     if model_choice == "t2":
-        model_name = "gemini-2.5-flash"                       # T2 — Pro (powerful)
+        model_name = "gemini-2.5-flash"
     else:
-        model_name = "gemini-2.5-flash-lite-preview-06-17"    # T1 — Flash (cheap & fast)
+        model_name = "gemini-2.5-flash-lite-preview-06-17"
 
     # =====================================================
-    # PROMPT
-    # FIX 4: trimmed from ~800 tokens → ~280 tokens.
-    # Every rule kept, just worded tightly.
-    # This alone saves hundreds of tokens on every single request.
+    # SMART PROMPT SELECTION
     # =====================================================
-    prompt_text = f"""You are a friendly, expert {board} Class {class_level} {subject} teacher.
+    is_casual = is_greeting_or_casual(question) and not files
+    
+    if is_casual:
+        # Casual/greeting prompt - natural conversation
+        prompt_text = f"""You are a friendly AI tutor for {board} Class {class_level} students.
+
+Student said: "{question}"
+
+Respond naturally and warmly as a helpful tutor would. Keep it brief (1-2 sentences). 
+Invite them to ask any {subject} or other subject questions they need help with.
+Be conversational and encouraging. Don't list topics or give structured explanations unless they ask a real question.
+"""
+    else:
+        # Academic question prompt - structured teaching
+        prompt_text = f"""You are a friendly, expert {board} Class {class_level} {subject} teacher.
 
 Context: Board={board} | Class={class_level} | Subject={subject} | Chapter={chapter}
 
@@ -112,12 +135,12 @@ Student question: \"\"\"{question}\"\"\"
 ANSWER RULES:
 - Plain text only. No Markdown, LaTeX, HTML, or emojis.
 - Math in school style: sin 30° = 1/2, not LaTeX.
-- Wrap with *single asterisks* (never **) around: formulas, defined terms, laws, final answers, given values, units. Highlight GENEROUSLY — at least 4-6 things per answer.
-- Be friendly and conversational, not dry. Reference the board/class/subject in your answer.
+- Wrap with *single asterisks* (never **) around: formulas, defined terms, laws, final answers, given values, units. Highlight generously — at least 4-6 things per answer.
+- Be friendly and conversational, not dry. Reference the board/class/subject naturally.
 - Answer strictly at {board} Class {class_level} level. No higher-class shortcuts.
 - Frame answer how a board examiner expects it. Use {board} textbook terminology.
 
-STRUCTURE (always):
+STRUCTURE (for academic questions):
 1. Core idea (1-2 lines)
 2. Explanation (2-4 lines, step-by-step for Maths/Physics/Chemistry)
 3. Example or value if useful
@@ -128,7 +151,7 @@ SUBJECT-SPECIFIC:
 - Physics: Given → Formula → Substitution → Answer with unit.
 - Chemistry: correct reactions, conditions, symbols, names.
 - Biology: keyword-based, no vague explanations.
-- If a diagram is needed: state "A neat labelled diagram should be drawn."
+- If diagram needed: state "A neat labelled diagram should be drawn."
 
 BOARD-SPECIFIC:
 - CBSE: NCERT method only.
@@ -137,18 +160,18 @@ BOARD-SPECIFIC:
 
 STRICT RULES:
 - Do NOT mention AI, instructions, or formatting rules in your answer.
-- Do NOT add motivation, stories, or off-topic facts.
+- Do NOT add motivation, stories, or off-topic facts unless directly relevant.
 - Do NOT skip steps that carry marks.
-- Mention a common mistake only if students frequently lose marks for it (max 1 line).
+- Mention common mistakes only if students frequently lose marks (max 1 line).
 - Final answer must be immediately visible at the end.
 """
 
-    # Only add file rules if files are actually attached (saves tokens otherwise)
+    # Only add file rules if files are actually attached
     if files:
         prompt_text += """
 FILE RULES:
 - Read and analyse the attached file before answering.
-- Question paper or worksheet: solve ALL visible questions step by step.
+- Question paper/worksheet: solve ALL visible questions step by step.
 - Diagram: explain in exam-appropriate language.
 - Poor image quality: say so briefly, then answer what's visible.
 - Always relate file content to the board/class/subject above.
@@ -158,7 +181,7 @@ FILE RULES:
     # BUILD GEMINI CONTENTS (multimodal)
     # =====================================================
     contents = []
-    uploaded_file_names = []  # FIX 5: track for cleanup after response
+    uploaded_file_names = []
 
     for f in files:
         mime = f.get("mimeType", "")
@@ -191,11 +214,10 @@ FILE RULES:
                     )
                 )
 
-                # FIX 6: was time.sleep() blocking the async server — now asyncio.sleep()
                 max_wait = 20
                 waited = 0
                 while uploaded.state.name == "PROCESSING" and waited < max_wait:
-                    await asyncio.sleep(1)   # non-blocking — other requests can run
+                    await asyncio.sleep(1)
                     waited += 1
                     uploaded = client.files.get(name=uploaded.name)
 
@@ -218,7 +240,6 @@ FILE RULES:
         elif mime == "text/plain":
             try:
                 text_content = raw_bytes.decode("utf-8", errors="replace")
-                # FIX 7: cap text file length — a huge .txt could burn thousands of tokens
                 if len(text_content) > 8000:
                     text_content = text_content[:8000] + "\n[...file truncated to save tokens...]"
                 prompt_text += f"\n\n--- Content of {name} ---\n{text_content}\n--- End of {name} ---"
@@ -226,7 +247,7 @@ FILE RULES:
                 prompt_text += f"\n[Note: Could not read text file '{name}': {e}]"
 
         else:
-            # Images: inline_data (jpeg, png, gif, webp)
+            # Images: inline_data
             try:
                 contents.append(types.Part.from_bytes(data=raw_bytes, mime_type=mime))
             except Exception as e:
@@ -240,14 +261,20 @@ FILE RULES:
     # =====================================================
     async def stream():
         try:
+            # For casual greetings, use lower token limit and higher temperature
+            if is_casual:
+                max_tokens = 150  # Much shorter for greetings
+                temp = 0.7        # More natural conversation
+            else:
+                max_tokens = MAX_OUTPUT_TOKENS
+                temp = 0.4
+
             response_stream = client.models.generate_content_stream(
                 model=model_name,
                 contents=contents,
-                # FIX 1: max_output_tokens hard cap + lower temperature
-                # temperature 0.4 = focused answers, less waffle, fewer tokens wasted
                 config=types.GenerateContentConfig(
-                    max_output_tokens=MAX_OUTPUT_TOKENS,
-                    temperature=0.4,
+                    max_output_tokens=max_tokens,
+                    temperature=temp,
                 ),
             )
 
@@ -270,13 +297,12 @@ FILE RULES:
             yield f"event: error\ndata: {str(e)}\n\n"
 
         finally:
-            # FIX 5: delete uploaded PDFs from Gemini File API after response is done
-            # Without this, files accumulate on Google's servers and eat your quota
+            # Cleanup uploaded PDFs
             for file_name in uploaded_file_names:
                 try:
                     client.files.delete(name=file_name)
                 except Exception:
-                    pass  # silent — don't crash the response over a cleanup failure
+                    pass
 
     return StreamingResponse(
         stream(),

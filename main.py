@@ -11,16 +11,16 @@ from fastapi.responses import StreamingResponse
 from google import genai
 from google.genai import types
 
-# =====================================================
-# ENV CHECK
-# =====================================================
+# Simple test - check if this even loads
+print("=== Starting Teengro Backend v4.1 ===")
+
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if not GEMINI_API_KEY:
+    print("ERROR: GEMINI_API_KEY not set")
     raise RuntimeError("GEMINI_API_KEY environment variable not set")
+else:
+    print("✓ API Key found")
 
-# =====================================================
-# APP INIT
-# =====================================================
 app = FastAPI(title="AI Tutor Backend", version="4.1")
 
 app.add_middleware(
@@ -30,25 +30,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# =====================================================
-# CONFIG
-# =====================================================
 ALLOWED_BOARDS = {"ICSE", "CBSE", "SSLC"}
-
 SUPPORTED_MIME_TYPES = {
     "image/jpeg", "image/png", "image/gif", "image/webp",
-    "application/pdf",
-    "text/plain",
+    "application/pdf", "text/plain",
 }
-
 MAX_OUTPUT_TOKENS = 1200
 MAX_QUESTION_LENGTH = 1500
 
-client = genai.Client(api_key=GEMINI_API_KEY)
+try:
+    client = genai.Client(api_key=GEMINI_API_KEY)
+    print("✓ Gemini client initialized")
+except Exception as e:
+    print(f"ERROR initializing Gemini: {e}")
+    raise
 
-# =====================================================
-# GREETING DETECTION
-# =====================================================
 def is_greeting_or_casual(text: str) -> bool:
     """Detect if message is just a greeting or casual chat"""
     text_lower = text.lower().strip()
@@ -57,27 +53,21 @@ def is_greeting_or_casual(text: str) -> bool:
         "good afternoon", "good evening", "what's up", "whats up",
         "sup", "yo", "wassup", "how are you", "how r u", "hru"
     }
-    # Single word/phrase greetings
     if text_lower in greetings:
         return True
-    # Short greetings with punctuation
     if any(text_lower.startswith(g) for g in greetings) and len(text.split()) <= 4:
         return True
     return False
 
-# =====================================================
-# HEALTH ROUTE
-# =====================================================
 @app.get("/")
 def root():
-    return {"status": "running"}
+    return {"status": "running", "version": "4.1", "message": "Teengro AI Tutor Backend"}
 
-# =====================================================
-# SSE ASK ROUTE (multimodal)
-# =====================================================
 @app.post("/api/ask")
 async def ask_question(payload: dict):
-
+    print(f"\n=== New Request ===")
+    print(f"Question: {payload.get('question', '')[:50]}...")
+    
     board        = (payload.get("board")        or "ICSE").strip().upper()
     class_level  = (payload.get("class_level")  or "10").strip()
     subject      = (payload.get("subject")      or "General").strip()
@@ -101,31 +91,29 @@ async def ask_question(payload: dict):
     if not question and files:
         question = "Please analyse this and answer any questions based on it."
 
-    # =====================================================
-    # MODEL SELECT
-    # =====================================================
+    # Model selection
     if model_choice == "t2":
         model_name = "gemini-2.5-flash"
     else:
         model_name = "gemini-2.5-flash-lite-preview-06-17"
 
-    # =====================================================
-    # SMART PROMPT SELECTION
-    # =====================================================
+    print(f"Model: {model_name}")
+    print(f"Board: {board}, Class: {class_level}, Subject: {subject}")
+
+    # Smart prompt selection
     is_casual = is_greeting_or_casual(question) and not files
+    print(f"Is casual greeting: {is_casual}")
     
     if is_casual:
-        # Casual/greeting prompt - natural conversation
         prompt_text = f"""You are a friendly AI tutor for {board} Class {class_level} students.
 
 Student said: "{question}"
 
 Respond naturally and warmly as a helpful tutor would. Keep it brief (1-2 sentences). 
 Invite them to ask any {subject} or other subject questions they need help with.
-Be conversational and encouraging. Don't list topics or give structured explanations unless they ask a real question.
-"""
+Be conversational and encouraging. Don't list topics or give structured explanations unless they ask a real question."""
+
     else:
-        # Academic question prompt - structured teaching
         prompt_text = f"""You are a friendly, expert {board} Class {class_level} {subject} teacher.
 
 Context: Board={board} | Class={class_level} | Subject={subject} | Chapter={chapter}
@@ -135,9 +123,9 @@ Student question: \"\"\"{question}\"\"\"
 ANSWER RULES:
 - Plain text only. No Markdown, LaTeX, HTML, or emojis.
 - Math in school style: sin 30° = 1/2, not LaTeX.
-- Wrap with *single asterisks* (never **) around: formulas, defined terms, laws, final answers, given values, units. Highlight generously — at least 4-6 things per answer.
-- Be friendly and conversational, not dry. Reference the board/class/subject naturally.
-- Answer strictly at {board} Class {class_level} level. No higher-class shortcuts.
+- Wrap with *single asterisks* (never **) around: formulas, defined terms, laws, final answers, given values, units.
+- Be friendly and conversational. Reference the board/class/subject naturally.
+- Answer strictly at {board} Class {class_level} level.
 - Frame answer how a board examiner expects it. Use {board} textbook terminology.
 
 STRUCTURE (for academic questions):
@@ -159,27 +147,22 @@ BOARD-SPECIFIC:
 - SSLC: Karnataka State Board syllabus only.
 
 STRICT RULES:
-- Do NOT mention AI, instructions, or formatting rules in your answer.
-- Do NOT add motivation, stories, or off-topic facts unless directly relevant.
+- Do NOT mention AI, instructions, or formatting in your answer.
+- Do NOT add motivation or off-topic facts.
 - Do NOT skip steps that carry marks.
-- Mention common mistakes only if students frequently lose marks (max 1 line).
-- Final answer must be immediately visible at the end.
-"""
+- Final answer must be immediately visible at the end."""
 
-    # Only add file rules if files are actually attached
     if files:
         prompt_text += """
+
 FILE RULES:
 - Read and analyse the attached file before answering.
 - Question paper/worksheet: solve ALL visible questions step by step.
 - Diagram: explain in exam-appropriate language.
 - Poor image quality: say so briefly, then answer what's visible.
-- Always relate file content to the board/class/subject above.
-"""
+- Always relate file content to the board/class/subject above."""
 
-    # =====================================================
-    # BUILD GEMINI CONTENTS (multimodal)
-    # =====================================================
+    # Build contents
     contents = []
     uploaded_file_names = []
 
@@ -231,6 +214,7 @@ FILE RULES:
                     prompt_text += f"\n[Note: PDF '{name}' could not be processed (state: {uploaded.state.name}).]"
 
             except Exception as e:
+                print(f"PDF upload error: {e}")
                 prompt_text += f"\n[Note: PDF upload failed ({e}), trying inline.]"
                 try:
                     contents.append(types.Part.from_bytes(data=raw_bytes, mime_type=mime))
@@ -241,30 +225,29 @@ FILE RULES:
             try:
                 text_content = raw_bytes.decode("utf-8", errors="replace")
                 if len(text_content) > 8000:
-                    text_content = text_content[:8000] + "\n[...file truncated to save tokens...]"
+                    text_content = text_content[:8000] + "\n[...file truncated...]"
                 prompt_text += f"\n\n--- Content of {name} ---\n{text_content}\n--- End of {name} ---"
             except Exception as e:
                 prompt_text += f"\n[Note: Could not read text file '{name}': {e}]"
 
         else:
-            # Images: inline_data
+            # Images
             try:
                 contents.append(types.Part.from_bytes(data=raw_bytes, mime_type=mime))
             except Exception as e:
+                print(f"Image error: {e}")
                 prompt_text += f"\n[Note: Could not process image '{name}': {e}]"
 
-    # Text prompt always goes last
     contents.append(types.Part.from_text(text=prompt_text))
 
-    # =====================================================
-    # STREAM GENERATOR
-    # =====================================================
+    # Stream generator
     async def stream():
         try:
-            # For casual greetings, use lower token limit and higher temperature
+            print("Starting stream...")
+            
             if is_casual:
-                max_tokens = 150  # Much shorter for greetings
-                temp = 0.7        # More natural conversation
+                max_tokens = 150
+                temp = 0.7
             else:
                 max_tokens = MAX_OUTPUT_TOKENS
                 temp = 0.4
@@ -283,21 +266,24 @@ FILE RULES:
             def get_next():
                 return next(response_stream, None)
 
+            chunk_count = 0
             while True:
                 chunk = await loop.run_in_executor(None, get_next)
                 if chunk is None:
                     break
                 text = chunk.text or ""
                 if text:
+                    chunk_count += 1
                     yield f"data: {json.dumps(text)}\n\n"
 
+            print(f"Stream completed. Chunks sent: {chunk_count}")
             yield "event: end\ndata: done\n\n"
 
         except Exception as e:
+            print(f"Stream error: {e}")
             yield f"event: error\ndata: {str(e)}\n\n"
 
         finally:
-            # Cleanup uploaded PDFs
             for file_name in uploaded_file_names:
                 try:
                     client.files.delete(name=file_name)
@@ -314,9 +300,7 @@ FILE RULES:
         },
     )
 
-# =====================================================
-# LOCAL RUN
-# =====================================================
 if __name__ == "__main__":
+    print("\n=== Ready to accept requests ===\n")
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=10000)
+    uvicorn.run("main_debug:app", host="0.0.0.0", port=10000, log_level="info")

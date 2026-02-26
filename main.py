@@ -112,7 +112,7 @@ Student question: \"\"\"{question}\"\"\"
 ANSWER RULES:
 - Plain text only. No Markdown, LaTeX, HTML, or emojis.
 - Math in school style: sin 30° = 1/2, not LaTeX.
-- Highlight key formulas/definitions/final answers with *single asterisks* only. Never **.
+- Wrap with *single asterisks* (never **) around: formulas, defined terms, laws, final answers, given values, units. Highlight GENEROUSLY — at least 4-6 things per answer.
 - Be friendly and conversational, not dry. Reference the board/class/subject in your answer.
 - Answer strictly at {board} Class {class_level} level. No higher-class shortcuts.
 - Frame answer how a board examiner expects it. Use {board} textbook terminology.

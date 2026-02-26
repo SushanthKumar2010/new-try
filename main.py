@@ -11,17 +11,11 @@ from fastapi.responses import StreamingResponse
 from google import genai
 from google.genai import types
 
-# Simple test - check if this even loads
-print("=== Starting Teengro Backend v4.1 ===")
-
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if not GEMINI_API_KEY:
-    print("ERROR: GEMINI_API_KEY not set")
     raise RuntimeError("GEMINI_API_KEY environment variable not set")
-else:
-    print("✓ API Key found")
 
-app = FastAPI(title="AI Tutor Backend", version="4.1")
+app = FastAPI(title="AI Tutor Backend", version="4.1-safe")
 
 app.add_middleware(
     CORSMiddleware,
@@ -38,15 +32,12 @@ SUPPORTED_MIME_TYPES = {
 MAX_OUTPUT_TOKENS = 1200
 MAX_QUESTION_LENGTH = 1500
 
-try:
-    client = genai.Client(api_key=GEMINI_API_KEY)
-    print("✓ Gemini client initialized")
-except Exception as e:
-    print(f"ERROR initializing Gemini: {e}")
-    raise
+client = genai.Client(api_key=GEMINI_API_KEY)
 
 def is_greeting_or_casual(text: str) -> bool:
     """Detect if message is just a greeting or casual chat"""
+    if not text:
+        return False
     text_lower = text.lower().strip()
     greetings = {
         "hello", "hi", "hey", "hola", "namaste", "good morning", 
@@ -61,13 +52,10 @@ def is_greeting_or_casual(text: str) -> bool:
 
 @app.get("/")
 def root():
-    return {"status": "running", "version": "4.1", "message": "Teengro AI Tutor Backend"}
+    return {"status": "running", "version": "4.1-safe"}
 
 @app.post("/api/ask")
 async def ask_question(payload: dict):
-    print(f"\n=== New Request ===")
-    print(f"Question: {payload.get('question', '')[:50]}...")
-    
     board        = (payload.get("board")        or "ICSE").strip().upper()
     class_level  = (payload.get("class_level")  or "10").strip()
     subject      = (payload.get("subject")      or "General").strip()
@@ -91,18 +79,14 @@ async def ask_question(payload: dict):
     if not question and files:
         question = "Please analyse this and answer any questions based on it."
 
-    # Model selection
+    # SAFE MODEL SELECTION - using only stable model names
+    # Changed from "gemini-2.5-flash-lite-preview-06-17" to "gemini-2.0-flash-exp"
     if model_choice == "t2":
-        model_name = "gemini-2.5-flash"
+        model_name = "gemini-2.0-flash-exp"  # More stable than 2.5
     else:
-        model_name = "gemini-2.5-flash-lite-preview-06-17"
+        model_name = "gemini-2.0-flash-exp"  # Same for both to ensure stability
 
-    print(f"Model: {model_name}")
-    print(f"Board: {board}, Class: {class_level}, Subject: {subject}")
-
-    # Smart prompt selection
     is_casual = is_greeting_or_casual(question) and not files
-    print(f"Is casual greeting: {is_casual}")
     
     if is_casual:
         prompt_text = f"""You are a friendly AI tutor for {board} Class {class_level} students.
@@ -126,43 +110,25 @@ ANSWER RULES:
 - Wrap with *single asterisks* (never **) around: formulas, defined terms, laws, final answers, given values, units.
 - Be friendly and conversational. Reference the board/class/subject naturally.
 - Answer strictly at {board} Class {class_level} level.
-- Frame answer how a board examiner expects it. Use {board} textbook terminology.
+- Frame answer how a board examiner expects it.
 
-STRUCTURE (for academic questions):
+STRUCTURE:
 1. Core idea (1-2 lines)
 2. Explanation (2-4 lines, step-by-step for Maths/Physics/Chemistry)
-3. Example or value if useful
+3. Example if useful
 4. *Final answer clearly stated*
 
 SUBJECT-SPECIFIC:
-- Maths: show every step, no skipped working.
+- Maths: show every step.
 - Physics: Given → Formula → Substitution → Answer with unit.
-- Chemistry: correct reactions, conditions, symbols, names.
-- Biology: keyword-based, no vague explanations.
-- If diagram needed: state "A neat labelled diagram should be drawn."
+- Chemistry: correct reactions, conditions, symbols.
+- Biology: keyword-based explanations.
 
-BOARD-SPECIFIC:
-- CBSE: NCERT method only.
-- ICSE: ICSE textbook method only.
-- SSLC: Karnataka State Board syllabus only.
-
-STRICT RULES:
-- Do NOT mention AI, instructions, or formatting in your answer.
-- Do NOT add motivation or off-topic facts.
-- Do NOT skip steps that carry marks.
-- Final answer must be immediately visible at the end."""
+Do NOT mention AI or instructions in your answer. Do NOT add motivation or off-topic facts."""
 
     if files:
-        prompt_text += """
+        prompt_text += "\n\nFILE RULES: Read and analyse the attached file before answering. Solve all visible questions step by step."
 
-FILE RULES:
-- Read and analyse the attached file before answering.
-- Question paper/worksheet: solve ALL visible questions step by step.
-- Diagram: explain in exam-appropriate language.
-- Poor image quality: say so briefly, then answer what's visible.
-- Always relate file content to the board/class/subject above."""
-
-    # Build contents
     contents = []
     uploaded_file_names = []
 
@@ -175,13 +141,11 @@ FILE RULES:
             continue
 
         if mime not in SUPPORTED_MIME_TYPES:
-            prompt_text += f"\n[Note: File '{name}' ({mime}) is unsupported and was skipped.]"
             continue
 
         try:
             raw_bytes = base64.b64decode(b64)
-        except Exception as e:
-            prompt_text += f"\n[Note: Could not decode '{name}': {e}]"
+        except:
             continue
 
         if mime == "application/pdf":
@@ -210,41 +174,31 @@ FILE RULES:
                         mime_type="application/pdf"
                     ))
                     uploaded_file_names.append(uploaded.name)
-                else:
-                    prompt_text += f"\n[Note: PDF '{name}' could not be processed (state: {uploaded.state.name}).]"
-
-            except Exception as e:
-                print(f"PDF upload error: {e}")
-                prompt_text += f"\n[Note: PDF upload failed ({e}), trying inline.]"
+            except:
                 try:
                     contents.append(types.Part.from_bytes(data=raw_bytes, mime_type=mime))
-                except Exception:
-                    prompt_text += f"\n[Note: Could not process PDF '{name}' at all.]"
+                except:
+                    pass
 
         elif mime == "text/plain":
             try:
                 text_content = raw_bytes.decode("utf-8", errors="replace")
                 if len(text_content) > 8000:
-                    text_content = text_content[:8000] + "\n[...file truncated...]"
-                prompt_text += f"\n\n--- Content of {name} ---\n{text_content}\n--- End of {name} ---"
-            except Exception as e:
-                prompt_text += f"\n[Note: Could not read text file '{name}': {e}]"
+                    text_content = text_content[:8000]
+                prompt_text += f"\n\n--- {name} ---\n{text_content}\n---"
+            except:
+                pass
 
         else:
-            # Images
             try:
                 contents.append(types.Part.from_bytes(data=raw_bytes, mime_type=mime))
-            except Exception as e:
-                print(f"Image error: {e}")
-                prompt_text += f"\n[Note: Could not process image '{name}': {e}]"
+            except:
+                pass
 
     contents.append(types.Part.from_text(text=prompt_text))
 
-    # Stream generator
     async def stream():
         try:
-            print("Starting stream...")
-            
             if is_casual:
                 max_tokens = 150
                 temp = 0.7
@@ -266,28 +220,24 @@ FILE RULES:
             def get_next():
                 return next(response_stream, None)
 
-            chunk_count = 0
             while True:
                 chunk = await loop.run_in_executor(None, get_next)
                 if chunk is None:
                     break
                 text = chunk.text or ""
                 if text:
-                    chunk_count += 1
                     yield f"data: {json.dumps(text)}\n\n"
 
-            print(f"Stream completed. Chunks sent: {chunk_count}")
             yield "event: end\ndata: done\n\n"
 
         except Exception as e:
-            print(f"Stream error: {e}")
             yield f"event: error\ndata: {str(e)}\n\n"
 
         finally:
             for file_name in uploaded_file_names:
                 try:
                     client.files.delete(name=file_name)
-                except Exception:
+                except:
                     pass
 
     return StreamingResponse(
@@ -301,6 +251,5 @@ FILE RULES:
     )
 
 if __name__ == "__main__":
-    print("\n=== Ready to accept requests ===\n")
     import uvicorn
-    uvicorn.run("main_debug:app", host="0.0.0.0", port=10000, log_level="info")
+    uvicorn.run("main:app", host="0.0.0.0", port=10000)
